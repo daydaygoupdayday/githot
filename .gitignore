@@ -1,0 +1,35 @@
+# ===== 密钥与本地配置（绝不提交）=====
+.env
+.env.*
+*.env
+!.env.example
+!.env.sample
+
+# ===== Python 缓存与构建产物 =====
+__pycache__/
+*.py[cod]
+*$py.class
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ===== 虚拟环境 =====
+.venv/
+venv/
+env/
+
+# ===== 本地数据与测试产物 =====
+*.sqlite
+*.sqlite3
+*.db
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ===== IDE / 系统文件 =====
+.idea/
+*.code-workspace
+.DS_Store

@@ -1,0 +1,13 @@
+langchain==1.3.2
+langchain-openai==1.2.2
+langchain-text-splitters==1.1.3
+langchain-community==0.4.2
+rank_bm25==0.2.2
+jieba==0.42.1
+python-dotenv==1.0.1
+requests>=2.32.0
+rich==14.0.0
+numpy>=2.5.0
+
+# 可选：把对话记忆持久化到本地 sqlite（替换 InMemorySaver）
+# langgraph-checkpoint-sqlite

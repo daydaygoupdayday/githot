@@ -53,9 +53,11 @@ githot/
 ├── prompt/
 │   ├── github_prompt.py   # 查询与工具路由的 system prompt
 │   └── wechat_prompt.py   # 写作 prompt + 风格模板 + 版式种子 + 禁词表
-└── tools/
-    ├── github_tools.py    # GitHub Search API 取数 + 两个 @tool（榜单）
-    └── wechat_tools.py    # 榜单 → 公众号文章（取数 / 组装 / 生成 三层）
+├── tools/
+│   ├── github_tools.py    # GitHub Search API 取数 + 两个 @tool（榜单）
+│   └── wechat_tools.py    # 榜单 → 公众号文章（取数 / 组装 / 生成 三层）
+└── api/
+    └── sse_api.py         # FastAPI 接口层：SSE 对话流 / 文章流 / 会话管理（网页端用）
 ```
 
 **数据流 / Data flow**
@@ -211,6 +213,51 @@ for text in stream_article(records, meta, style="科技种草", word_count=800):
 
 ---
 
+## HTTP/SSE 接口与网页端 / API & Web UI
+
+把 Agent 功能封装成 HTTP 接口（`api/sse_api.py`，FastAPI + SSE），网页端直接调用：
+
+> **网页端（前端）入口**：独立仓库 [githot_web](https://github.com/daydaygoupdayday/githot_web)，技术栈 Vite + React + antd + Tailwind + Redux Toolkit + axios，完整说明见其 [README](https://github.com/daydaygoupdayday/githot_web)。
+
+```bash
+# 1. 启动后端（仓库根目录内，需 pip install fastapi uvicorn）
+python api/sse_api.py                     # 默认 0.0.0.0:8000，文档在 /docs
+
+# 2. 启动前端（独立仓库 https://github.com/daydaygoupdayday/githot_web）
+git clone https://github.com/daydaygoupdayday/githot_web.git
+cd githot_web && npm install && npm run dev   # http://localhost:5173，/api 自动代理到 8000
+```
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/health` | 存活探针 |
+| POST/GET | `/api/chat/stream` | 多轮对话 SSE 流（`message`、`thread_id`、`show_thinking`） |
+| POST/GET | `/api/article/stream` | 公众号文章 SSE 流（逐字输出） |
+| POST | `/api/article` | 文章 JSON 一次性返回（脚本/测试用） |
+| GET | `/api/article/styles` | 可选写作风格列表 |
+| GET | `/api/boards` | 榜单类型与默认星数门槛 |
+| GET | `/api/threads/{id}/messages` | 查看某会话消息（角色/长度/预览） |
+| DELETE | `/api/threads/{id}` | 清空某会话 |
+
+SSE 事件类型：
+
+- 对话流：`meta`（回传 thread_id）→ `tool_call` → `tool_result` → `token`（逐字）→ `final` → `done`；出错发 `error`
+- 文章流：`meta`（**口径 + 真实仓库条目**，链接/星数以这里为准，模型只负责行文）→ `token` → `done`
+
+```bash
+curl -N -X POST http://127.0.0.1:8000/api/chat/stream \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"最近7天 Python 高星新仓库，前3","thread_id":"demo"}'
+```
+
+网页端功能：**热榜对话**（多会话管理、流式气泡、工具调用折叠可视化、思考过程展示、停止/清空）、**生成文章**（参数表单 + 逐字流式 + Markdown 预览 + 真实数据区表格核对 + 复制/下载 .md）、**设置**（token、思考开关、后端探活）。前端源码与对接细节见 [githot_web](https://github.com/daydaygoupdayday/githot_web)。
+
+环境变量：`GITHOT_HOST` / `GITHOT_PORT`（监听）、`GITHOT_API_TOKEN`（设置后除 `/health` 外要求 `Authorization: Bearer <token>`）、`GITHOT_ALLOW_ORIGINS`（CORS 白名单，逗号分隔）。
+
+> 对话记忆仍是进程内 `InMemorySaver`：多轮对话固定同一个 `thread_id`，服务重启后清空；多进程部署（`--workers > 1`）同一 thread_id 可能落到不同进程——需要持久化请换 `SqliteSaver`。
+
+---
+
 ## 工具参考 / Tools Reference
 
 Agent 挂载三个工具（`agent/agent_chat.py` 里的 `tools` 列表）：
@@ -296,13 +343,13 @@ __pycache__/
 ```
 
 - 仓库内的 `.env` 仅为占位模板；**填入真实密钥后切勿提交**。
-- 对外提供 HTTP 接口前，请自行加鉴权与 CORS 白名单（本仓库当前只包含 CLI 与可嵌入的 Python API，未内置 Web 服务）。
+- 内置 HTTP/SSE 接口（`api/sse_api.py`）默认无鉴权、CORS 全开，仅适合本机开发；**公网部署前务必设置 `GITHOT_API_TOKEN` 与 `GITHOT_ALLOW_ORIGINS`**。
 
 ---
 
 ## 路线图 / Roadmap
 
-- [ ] SSE / HTTP 接口封装（把 `AgentChat.stream()` 事件流对接 Web）
+- [x] SSE / HTTP 接口封装（`api/sse_api.py`）+ React 网页端（对话 / 文章生成）
 - [ ] 持久化 checkpointer 作为可选项内置
 - [ ] GitHub token 支持，提升 API 限额
 - [ ] 更多写作风格与自定义版式种子

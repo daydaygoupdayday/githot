@@ -9,5 +9,9 @@ requests>=2.32.0
 rich==14.0.0
 numpy>=2.5.0
 
+# HTTP/SSE 接口层（githot/api/sse_api.py）
+fastapi>=0.115.0
+uvicorn>=0.32.0
+
 # 可选：把对话记忆持久化到本地 sqlite（替换 InMemorySaver）
 # langgraph-checkpoint-sqlite

@@ -44,7 +44,7 @@ A GitHub trending-repos agent built on LangChain / LangGraph — streaming outpu
 ```
 githot/
 ├── __init__.py            # 包入口：统一导出 AgentChat / AgentEvent / 展示工具
-├── __main__.py            # python -m githot → 直接开一个终端多轮会话
+├── __main__.py            # 备用入口：仓库根内 python __main__.py 同样可启动 CLI
 ├── requirements.txt       # 依赖清单
 ├── agent/
 │   ├── agent_chat.py      # Agent 图 + AgentChat（流式 / 多轮 / CLI REPL）
@@ -85,9 +85,9 @@ flowchart LR
 ### 1. 安装 / Install
 
 ```bash
-git clone https://github.com/<your-username>/githot.git
-cd githot
-python -m venv .venv && source .venv/bin/activate   # 建议虚拟环境
+git clone https://github.com/daydaygoupdayday/githot.git
+cd githot                                             # 进入仓库根目录，以下操作都在这里
+python -m venv .venv && source .venv/bin/activate     # 建议虚拟环境
 pip install -r requirements.txt
 ```
 
@@ -95,7 +95,7 @@ pip install -r requirements.txt
 
 ### 2. 配置模型 / Configure the model
 
-项目通过 [python-dotenv](https://pypi.org/project/python-dotenv/) 读取环境变量，兼容任何 **OpenAI 协议**的接口（OpenAI 官方、DashScope/通义千问、OneAPI、本地 vLLM 等）。在项目根目录新建 `.env`：
+项目通过 [python-dotenv](https://pypi.org/project/python-dotenv/) 读取环境变量，兼容任何 **OpenAI 协议**的接口（OpenAI 官方、DashScope/通义千问、OneAPI、本地 vLLM 等）。仓库根目录已自带 `.env` 占位模板，把三个值改成本机真实配置即可：
 
 ```bash
 # .env
@@ -110,15 +110,17 @@ MODEL=qwen-plus
 | `BASE_URL` | OpenAI 兼容 base_url | `https://api.openai.com/v1` |
 | `MODEL` | 模型名 | `qwen-plus` / `gpt-4o-mini` |
 
-> ⚠️ `.env` 含密钥，**不要提交**。请先在仓库根目录放一个 `.gitignore`（见下方「安全 / Security」）。
+> ⚠️ 仓库里的 `.env` 只是占位模板（全假数据）。真实密钥只填在本地，**切勿把真实密钥提交**——`.gitignore` 已包含 `.env` 规则。
 > 修改 `.env` 后想让配置热生效，调用 `agent.llm_model.reset_llm_cache()` 清掉 `lru_cache`。
 
 ### 3. 运行 / Run
 
+以下命令均在**仓库根目录（`githot/`）内**执行：
+
 ```bash
-python -m githot                        # 推荐：在项目根目录运行
+python agent/agent_chat.py              # 推荐：直接启动终端多轮会话
 # 或
-python githot/agent/agent_chat.py       # 直接跑文件也可以
+python -m agent.agent_chat              # 等价写法
 ```
 
 进入终端多轮会话，逐字流式输出：
@@ -148,7 +150,8 @@ GitHub 热门仓库助手（流式输出 + 多轮记忆）
 ### 代码里调用 / Python API
 
 ```python
-from githot import AgentChat
+# 在仓库根目录（githot/）内运行；从其他目录运行需先把仓库根加入 PYTHONPATH
+from agent.agent_chat import AgentChat
 
 chat = AgentChat()                          # 一个会话 = 一个 thread_id
 chat.send("最近7天 Python 高星新仓库，前3")   # 边流式打印边返回完整答案
@@ -179,7 +182,7 @@ for event in chat.stream("最近一个月 Go 高星新仓库"):
 - 展示层小工具可单独复用（不必经过 `AgentChat`）：
 
 ```python
-from githot.agent.utils import message_text, preview, print_event
+from agent.utils import message_text, preview, print_event
 
 message_text(msg)                 # 消息/裸 content → 纯文本（自动跳过 thinking 等内容块）
 preview(tool_output, limit=200)   # 工具返回值压成一行并截断，防刷屏
@@ -191,7 +194,7 @@ print_event(event)                # 终端渲染；做 Web 时换成自己的渲
 数据抓取 → 提示词构建 → 大模型写作，三段式管线。可脱离对话直接调用：
 
 ```python
-from githot.tools.wechat_tools import generate_article, fetch_rank_records, stream_article
+from tools.wechat_tools import generate_article, fetch_rank_records, stream_article
 
 # 一步到位：取数 + 写整篇（阻塞）
 meta, records, article, error = generate_article(
@@ -282,7 +285,7 @@ checkpointer = SqliteSaver.from_conn_string("githot_checkpoints.sqlite")
 
 ## 安全 / Security
 
-仓库根目录建议放置 `.gitignore`，至少屏蔽密钥与缓存：
+仓库根目录已自带 `.gitignore`，屏蔽密钥与缓存：
 
 ```gitignore
 .env
@@ -292,7 +295,7 @@ __pycache__/
 *.sqlite
 ```
 
-- **切勿提交 `.env`**（内含 `API_KEY`）。
+- 仓库内的 `.env` 仅为占位模板；**填入真实密钥后切勿提交**。
 - 对外提供 HTTP 接口前，请自行加鉴权与 CORS 白名单（本仓库当前只包含 CLI 与可嵌入的 Python API，未内置 Web 服务）。
 
 ---
